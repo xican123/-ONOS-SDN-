@@ -348,3 +348,20 @@ OVS交换机
 	3.数据转发通路(datapath)执行数据交换工作，负责从设备入端口接收数据包并依据流表信息对其进行管理
 	4.OpenFlow协议支持则用于实现交换策略
 	5.两种数据转发通路：完全工作在用户态
+
+OVS交换机核心实现
+	1.分为用户空间和内核空间
+	2.用户空间有多个组件，负责实现数据交换和OpenFlow流表功能
+	3.ovs-vswitchd是重要组件，与内核模块通过generic netlink通信，将交换机配置信息，数据流信息及变化保存到数据库ovsdb（通过UNIX socket机制与ovsdb-server通信管理数据库）
+	4.ovs-appctl发布内部命令给ovs-vswitchd改变配置
+	5.ovs-dpctl驱使ovs-vswitchd在不依赖数据库的情况下管理内核空间中的数据通路
+	6.ovsdb-client或ovsdb-tool对数据库操作
+	7.通过ovs-ofctl可以使用OpenFlow去连接交换机并在远程开展监控和管理
+	8.sFlow协议用于数据包的采样和监控，但需要额外的sFlowTrend的软件
+
+OVS交换机负责数据流发送相关流程
+	1.OVS定义的port结构在内核观察到从OVS上的链接的某块虚拟网卡上有数据包发来，将其传递给一个名为internal_dev_xmit()函数，该函数依次接收数据包
+	2.OVS在内核状态下查看流表结构，观察是否有缓存的信息可用于转发这个数据包，这项工作主要是由ovs_flow_tbl_looup()函数完成。该函数运行需要一个独一无二的key值，将从ovs_flow_extract()函数通过手机收集数据包细节信息得到
+	3.假设数据包是由虚拟网卡发出的第一个包，那么在OVS内核中将不会有相应的流表缓存存在，那么内核将不会知道如何处置这个数据包，这时内核就会通过genl发送一个upcall给用户空间
+	4.位于OVS用户空间的ovs-vswitchd进程在接收到upcall后，将检查数据库以查看数据包的目的端口，通过OVS_ACTION_ATTR_OUTPUT告诉内核
+	5.最终OVS_ACTION_ATTR_OUTPUT命令将使得内核执行用户此前设置的动作，即内核将在do_execute_actions()函数中执行这条genl命令，并将数据包通过do_output()函数转发给目的端口，数据包进而被发出
