@@ -1,0 +1,19 @@
+被这个问题搞得很伤脑筋，使用karaf clean命令一直提示命令没找到。
+
+1.安装：
+必须安装在/root/Applications路径下，因为这是onos源码设置的缘故。
+# mkdir /root/Applications
+# cd /root/Applications
+# wget http://archive.apache.org/dist/karaf/3.0.3/apache-karaf-3.0.3.tar.gz
+# tar -xzf apache-karaf-3.0.3.tar.gz
+
+2.系统路径设置
+# cd /etc
+# sudo gedit profile
+在profile文件中加入
+export KARAF_ROOT=/root/Applications/apache-karaf-3.0.3
+
+3.现在是启动阶段，必须注意先root，每次启动都cd到KARAF_ROOT路径下，然后使用如下命令
+# source /etc/profile
+# source $ONOS_ROOT/tools/dev/bash_profile
+# karaf clean
