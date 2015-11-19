@@ -1,0 +1,9 @@
+1.进入root权限
+# su root
+
+2.进入onos文件
+# cd ${ONOS_ROOT}
+
+3.执行以下语句
+# source /etc/profile
+# mvn clean install
