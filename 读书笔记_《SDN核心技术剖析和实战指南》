@@ -494,9 +494,98 @@ OpenStack平台的Quantum组件分析
 		f.仪表盘(Dashboard)组件Horizon 为所有的OpenStack服务提供模块化的基于Web的用户界面
 		g.身份识别(Identity)组件Keystone 为所有的OpenStack服务提供授权和认证
 
-Quantum特征
+Quantum特征和实现原理
 	1.丰富的Quantum API
 		a.网络：隔离的二层网段，与物理网络的VLAN类似
 		b.子网：一组IPv4或者IPv6地址段和相关配置状态
 		c.端口：将单个设备挂接到虚拟网络的连接点及相关的网络配置
 	2.灵活的技术选择
+	3.将云计算数据中心的网络资源抽象为网络、子网、端口三类型
+
+OpenStack Quantum的基本功能
+	1.四类物理网络
+		a.管理网络 用于OpenStack组件之间的内部通信，该网络中的IP地址只能是数据中心内部可达
+		b.数据网络 用于云环境中部署虚拟机之间的数据通信，具体的IP寻址需求需要根据网络插件决定
+		c.外部网络 用于提供虚拟机对外部互联网的访问，IP地址需要被互联网上任意节点可达
+		d.API网络 用于将OpenStack API交付给用户，该网络中的IP地址需要是互联网可达，有可能与外部网络是同一网络，也有可能在外部网络中指定IP地址分配范围以创建一个子网
+	2.OpenStack中典型链接拓扑形式
+		a.单个平坦网络
+			--API使用到它
+			--租户虚拟机具有一个单独的NIC，并具有一个属于网络中相关子网的固定的IP地址，这个网络可以被映射为在OpenStack Compute服务中提出的FlatManager和FlatDHCPManager模型
+			--不支持浮动IP地址，即租户虚拟机的IP地址是固定的
+			--由管理员创建并被直接映射到一个数据中心已有的物理网络中
+			--允许供应商将数据中心中的物理路由器作为网关供虚拟机到达外部网络
+		b.多个平坦网络
+			--与单个平坦网络类似，但租户可以通过API看到多个共享网络，并选择插入哪一个网络中
+		c.基于平坦网络的私有网络
+			--租户可选地访问私有的仅属于自己的租户网络
+			--在虚拟机创建过程中，虚拟机既可以拥有位于任何共享网络中的NIC，也可以拥有只属于其所在租户的私有网络
+			--支持将一台虚拟机作为网关模型，其中虚拟机能提供路由、NAT、负载均衡等服务
+		d.基于同一供应商路由器的私有网络
+			--为每个租户提供一个或多个私有网络，这些网络可以通过Quantum路由器与外界联通
+			--每个租户都有能精确地映射到和OpenStack计算组件服务中提供的VlanManager中具有相同逻辑拓扑的网络
+			--使用Quantum API,租户只能看到指派给自己的私有网络
+		e.基于租户自有路由器的私有网络
+	3.SLA--Service Level Agreement服务水平协议
+
+Mininet支持操作
+	1.查看全部节点
+		mininet> nodes
+	2.查看链路信息
+		mininet> net
+	3.输出各节点的信息
+		mininet> dump
+	4.对某个节点单独操作
+		mininet> node cmd
+	5.自定义拓扑
+	6.指定远程控制器
+
+Mininet启动参数列表
+	-h，--help	显示帮助信息
+	--switch=SWITCH 设置交换机类型
+	--host=HOST 设置主机进程
+	--controller=CONTROLLER 设置控制器类型
+	--topo=TOPO 设置拓扑
+	-c,--clean 清除并结束
+	--custom=CUSTOM 从.py文件中读取定制参数
+	-x，--xtrems 为每个节点打开xterm
+	--mac 设置MAC地址等于DPID
+	--arp 设置ARP对
+	--ip=IP 设置远程控制器IP
+	--port=PORT 设置远程控制器侦听端口
+
+Mininet命令行接口
+	help 默认列出所有命令文档，后面加命令行将介绍该命令用法
+	dump 打印节点信息
+	gterm 给定节点上开启gnome-terminal
+	xterm 给定节点上开启xterm
+	intfs 列出所有的网络接口
+	iperf 两个节点之间进行简单的iperfTCP测试
+	iperfudp 两个节点之间用指定带宽udp进行测试
+	net 显示网络链接状态
+	noecho 运行交互式窗口，关闭回应(echoing)
+	source 从外部文件读入命令
+	dpctl 在所有交换机上用dpctl执行相关命令，本地为tcp 127.0.0.1:6634
+	link 禁用或启用两个节点之间的链路
+	nodes 列出所有节点信息
+	pingall 所有host节点之间互ping
+	py 执行python表达式
+	sh 运行外部shell命令
+	quit/exit 退出
+
+互联网总体概述
+	1.由IP网，移动网，互联网数据中心，企业网构成
+	2.IP根据延伸距离及用于连接节点与网络的设备类型不同，可以分为骨干网、城域骨干网、接入网
+		a.骨干网 连接国家间或城市之间的网络，是国家批准的可以直接和国外连接的互联网
+		b.城域骨干网和接入网 作为骨干网络在本地的延伸，是城市范围的IP网络，主要承载数据、图像、多媒体、IP接入和各种增值业务及智能业务
+	3.移动网 用来满足移动通信业务需求而建设的网络
+		a.主要包括基站、移动回传网、移动核心网
+		b.移动回传网 面向3G/LTE业务需求的综合业务承载网络，主要实现移动基站BTS(Base Transceiver Station,基站收发台)、eNodeB(EvolvedNodeB，演进型NodeB，LTE中基站名称)等基站接入及流量的汇聚
+		c.移动核心网 
+			--实现接入终端注册、用户认证、控制和转发等策略制定、计费信息统计、基站管控等功能
+			--相关设备包括BSC(Base Station Controller，基站控制器)、PCF(Packet Control Function，分组控制器)、MME(Mobility Management Enity，移动性管理实体)、S-GW(Service Gateway，服务网关)、HSS(Home Subscriber Service，归属签约用户服务器)、PCRF(Policy And Charging Rules Function，策略和计费控制单元)
+		d.互联网数据中心(IDC) 
+		    --一种拥有完善的设备、专业化管理、完善的应用级服务的服务平台
+		    --两个显著特征：在网络中的位置、总的网络带宽容量
+		e.企业网
+			--一个企业内部或者一个企业及其相关联的企业之间建立的、为企业的经营活动提供服务的专用网或虚拟专用网
