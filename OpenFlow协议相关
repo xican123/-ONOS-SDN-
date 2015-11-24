@@ -1,0 +1,182 @@
+基于OpenFlow协议的软件定义网络
+SDN网络分为两个网
+1.数据网：Traffic
+2.信令网：OpenFlow Protocol
+
+OpenFlow数据包匹配特征
+一层：交换机入端口
+二层：源MAC地址，目的MAC地址，以太网类型，VLAN标签、VLAN优先级
+三层：源IP地址，目的IP地址，IP协议字段，IP服务类型
+四层：TCP/UDP源端口号，TCP/UDP目的端口号
+
+OpenFlow1.0对数据包处理方法
+	1.转发
+		--OFPAT_OUTPUT
+		--OFPAT_ENQUEUE	
+	2.修改包头
+		SET_VLAN_ID 修改VLAN标签
+		SET_VLAN_PCP 修改VLAN优先级
+		STRIP_VLAN 弹出VLAN标签
+		SET_DL_SRC 修改源MAC地址
+		SET_DL_DST 修改目的MAC地址
+		SET_NW_SRC 修改源IP地址
+		SET_NW_DST 修改目的IP地址
+		SET_NW_TOS 修改IP服务类型字段
+		SET_TP_SRC 修改源端口号
+		SET_TP_DST 修改目的端口号
+
+struct ofp_action_output{
+	uint16_t type;
+	uint16_t len;
+	uint16_t port;
+	uint16_t max_len;
+}
+		
+虚拟端口：
+	1.ALL 将数据包从除入端口外的其他所有端口转发
+	2.CONTROLLER 将数据包发送给控制器
+	3.LOCAL 将数据包发送给交换机本地端口
+	4.TABLE 将数据包按照流表匹配条目处理
+	5.IN_PORT 将数据包从入端口发出
+	6.NORMAL 按照普通二层交换机流程处理数据包
+	7.FLOOD 将数据包从最小生成树使能端口转发(不包括入端口)
+
+当Port为CONTROLLER时，max_len指定了发给CONTROLLER数据包最大长度。当port为其他参数时，max+_len无意义
+
+OpenFlow消息
+	1.三种信息类型:controller-to-switch asynchronous symmetric
+	2.controller-to-switch（控制器）
+		--Features 在建立TIS会话时控制器发送给交换机，交换机应答自身支持的功能
+		--Configuration 控制器设置或查询交换机上的配置参数，交换机应答查询信息
+		--Modify-state 控制器管理交换机流表项和端口信息
+		--Read-state 控制器向交换机请求统计信息
+		--Send-packet 控制器通过交换机指定端口发出数据包
+		--Barrier 控制器通过barrier请求及相应报文，确认相关信息已经被满足或收到完成操作的通知
+	3.asynchronous（交换机）
+		--Packet-in 收到数据包没有匹配或指定发送到控制器，如果缓存多数据包先存缓存，如果不多则附带数据包发送
+		--Flow-removed 流表项因为超时或收到修改删除命令被删除
+		--Port-status 交换机端口状态发生改变
+		--Error 通知问题
+	4.symmetric 
+		--Hello 发起建立连接
+		--Echo 发起Echo，接受者恢复Echo reply，用来协商延迟，带宽，是否连接保持等参数
+		--Vendor 预留
+
+OpenFlow消息格式
+	1.OpenFlow Header结构
+		struct ofp_header{
+			uint8_t version;
+			uint8_t type;
+			uint16_t length;
+			uint32_t xid;
+		}
+	2.OpenFlow Message结构
+		enum ofp_type{
+			OFPT_HELLO,
+			OFPT_ERROR,
+			OFPT_ECHO_REQUEST,
+			OFPT_ECHO_REPLY,
+			OFPT_VENDOR,
+
+			OFPT_FEATURES_REQUEST,
+			OFPT_FEATURES_REPLY,
+			OFPT_GET_CONFIG_REQUEST,
+			OFPT_GET_CONFIG_REPLY,
+			OFPT_GET_CPNFIG,
+
+			OFPT_PACKET_IN,	
+			OFPT_FLOW_REMOVED,
+			OFPT_PORT_STATUS,
+
+			OFPT_PACKET_OUT,
+			OFPT_FLOW_MOD,
+			OFPT_PORT_MOD,
+
+			OFPT_STATUS_REQUEST,
+			OFPT_STATUS_REPLY,
+
+			OFPT_QUEUE_GET_CONFIG_REQUEST,
+			OFPT_QUEUE_GET_CONFIG_REPLY,
+		}
+
+建立OpenFlow连接
+	1.控制器与交换机互相发送hello消息
+	2.hello消息中只包含OpenFlow Header
+	3.OpenFlow Header中的version字段为发送方支持的最高OF协议
+	4.双方选取hello消息中最低版本协议为通信协议
+	5.如果有一方不支持OpenFlow协议版本，发送error消息断开连接
+
+获取交换机特性Featrues消息
+	1.连接建立后，控制器向交换机发送Features Request消息查询交换机特性信息，包括交换机ID，交换机缓冲区数量，交换机端口及端口属性
+	2.交换机收到Features Request消息后返回Features Reply消息包括OpenFlow Header和Features Reply Message
+
+Features Reply Message结构
+	struct ofp_switch_features{
+		struct ofp_header header;
+		uint64_t datapath_id, //独一无二的id
+
+		uint32_t n_buffers,//交换机可同时缓存的最大数据包个数
+
+		uint8_t n_tables,//交换机流表数量
+		uint8_t pad[3];
+
+		uint32_t capabilities;//交换机支持的特殊功能
+		uint32_t actions;//交换机支持的动作
+
+		struct ofp_phy_port ports[0],//交换机的物理端口描述列表
+	}
+
+struct ofp_phy_port{
+	uint16_t port_no, //物理端口的编号
+	uint8_t hw_addr[OFP_ETH_ALAN]; //端口mac地址
+	char name[OFP_MAX_PORT_NAME_LEN] //端口名称
+
+	uint32_t config,//端口配置
+	uint32_t state,//端口状态
+
+	/*端口物理属性*/
+	uint32_t curr,
+	uint32_t advertised,
+	uint32_t supported,
+	uint32_t peer
+}
+
+配置交换机OpenFlow属性
+	strut ofp_switch_config{
+		struct ofp_header header,
+		uint16_t flags,//用来指示交换机如何处理IP分片数据包
+		uint16_t miss_send_len,//用来指示当一个交换机无法处理的数据包到达时将数据包发给控制器的最大字节数
+	}
+	enum ofp_connfig_flags{
+		OFPC_FRAG_NORMAL = 0,//No special handling for fragments
+		OFPC_FRAG_DROP = 1,//Drop fragments
+		OFPC_FRAG_REASM = 2,//Reassemble(only if OFPC_IP_REASM set)
+		OFPC_FRAG_MASK = 3,
+	}
+
+Packet_in事件（交换机接收数据包）
+	Packet-in消息触发情况1：
+	流表没有匹配条目，交换机将数据包封装在Packet_in消息中发送给控制器处理，此时数据包会被缓存在交换机中等待处理
+
+	Packet-in消息触发情况2：
+	action列表中包含转发给控制器的动作，此时数据包不会被缓存
+
+Packet_in消息格式
+	struct ofp_packet_in{
+		struct ofp_header header,
+		uint32_t buffer_id,//数据包在交换机中缓存区ID
+		uint16_t total_len,//data段长度
+		uint16_t in_port,//进入交换机的入接口号
+		uint8_t reason,//事件原因
+		uint8_t pad,
+		uint8_t data[0]
+	}
+	enum ofp_packet_in_reason{
+		OFPR_NO_MATCH,//NO matching flow
+		OFPR_ACTION//Action explicitly output to controller
+	}
+
+控制器配置流表(Flow_Mod消息)
+	Flow-Mod消息用来添加、删除、修改OpenFlow交换机的流表消息
+	Flow-Mod消息类型：
+	ADD DELETE DELETE_STRICT MODIFY MODIFY_STRICT
