@@ -180,3 +180,47 @@ Packet_in消息格式
 	Flow-Mod消息用来添加、删除、修改OpenFlow交换机的流表消息
 	Flow-Mod消息类型：
 	ADD DELETE DELETE_STRICT MODIFY MODIFY_STRICT
+	ADD类型的flow-mod消息用来添加一条新的流表项
+	DELETE类型的flow-mod消息用来删除所有符合一定条件的流表项
+	DELETE_STRICT类型的flow-mod消息用来删除某一条指定的流表项
+	MODIFY类型的flow-mod消息用来修改所有符合一定条件的流表项
+	MODIFY_STRICT类型的flow-mod消息用来修改某一条指定的流表项
+
+Flod-Mod消息格式
+	struct ofp_flow_mod{
+		struct ofp_header header,
+		struct ofp_match match, //流表match域
+		uint64_t cookies; //控制器定义的流表项标识符
+
+		uint16_t command, //flod-mod类型，可以是ADD DELETE DELETE_STRICT MODIFY MODIFY_STRICT
+		uint16_t idle_timeout, // 流表项空闲超时时间
+		uint16_t hard_timeout, //流表项最大生存时间
+		uint16_t priority, //流表项优先级
+		uint32_t buffer_id, //交换机中缓冲区ID，flow-mod可以指定一个缓冲区ID，该缓冲区中的数据包会按照此flow-mod消息的action列表处理
+
+		uint16_t out_port //删除流表的flow-mod提供的额外匹配参数
+
+		uint16_t flags,
+		struct ofp_action_header actions[0]; //action列表
+	}
+
+用Flow-Mod消息响应Packet-in消息
+	1.交换机收到数据包并且无法匹配时封装到Packet-in消息中发给控制器，并且交换机会将该数据包缓存
+	2.控制器收到后发送flow-mod消息向交换机写一个流表项，并将flow-mod消息中的buffer-id字段设置为packet-in消息中的buffer-id值
+	3.从而控制器向交换机写入了一条与数据包相关的流表项，并且指定该数据包按照此流表项的action列表处理
+
+交换机转发数据包(Packet-Out)
+	1.并不是所有数据包都需要向交换机添加一条流表项来匹配
+	2.此时控制器可以使用PacketOut消息告诉交换机如何处理某一个数据包
+Packet-out消息格式
+	struct ofp_packet_out{
+		struct ofp_header header,
+		uint32-t buffer_id, //交换机缓冲区ID，当为-1时，指定的缓冲区是packet-out消息的data段
+		uint16_t in_port, //额外匹配消息，当buffer-id为-1时并且actions列表指定了Output-TABLE的动作，inport将作为data段数据包的额外匹配信息进行流表查询
+		uint16_t actions_len, //指定action列表长度，用来区分actions和data段
+		struct ofp_action_header actions[0]
+		uint8_t data[0] //缓冲区，可以存储一个以太网帧
+	}
+Packet-Out消息的应用场景
+	1.指定某一个数据包的处理方法
+	2.让交换机产生一个数据包并按照action列表处理
