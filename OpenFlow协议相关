@@ -224,3 +224,19 @@ Packet-out消息格式
 Packet-Out消息的应用场景
 	1.指定某一个数据包的处理方法
 	2.让交换机产生一个数据包并按照action列表处理
+
+OpenFlow1.3与OpenFlow1.0主要不同
+	1.多级流表 流表项 Match Fields,Priority,Counters,Instructions,Timeouts,Cookies,Flags
+	2.组表 
+		a.组表项 Group Identifier,Group Type,Counters,Action Buckets
+		b.注释 
+			--Group Identifier：一个32bit标识符
+			--Group Type：组表条目类型
+			--Counters：组表条目的使用计数
+			--Action Buckets：一个Action列表的有序表（一系列Action列表的集合）
+		c.Group Type：
+			--all：执行action buckets中的所有动作，可以用于组播
+			--select：随机执行action buckets中的一个动作，可以用于多径
+			--indirect：只包含一个Action列表的组表，效率更高，可以用于路由聚合
+			--fast failover：执行action buckets中的第一条生存条目，可以用于快速故障恢复
+			
