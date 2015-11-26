@@ -239,4 +239,33 @@ OpenFlow1.3与OpenFlow1.0主要不同
 			--select：随机执行action buckets中的一个动作，可以用于多径
 			--indirect：只包含一个Action列表的组表，效率更高，可以用于路由聚合
 			--fast failover：执行action buckets中的第一条生存条目，可以用于快速故障恢复
+	3.Meter 定义OpenFlow交换机对数据包转发的性能参数
+		a.Main component of a meter entry in the meter table
+			Meter Identifier,Meter Bands,Counters
+		b.Main component of a meter band in a meter entry
+			Band Type,Rate,Counters,Type specific arguments
+
+OpenFlow1.3数据包匹配方法
+	1.struct ofp_match{
+		uint16_t type,
+		uint16_t length,
+
+		uint8_t oxm_fields[0]
+		uint8_t pad[4]
+	}
+	2.Type
+		a.enum ofp_match_type{
+			OFPMT_STANDARD = 0,
+			OFPMT_OXM = 1，
+		}
+	3.OXM_FIELDS = OpenFlow extensible Match
+		oxm_class,oxm_field,HM,oxm_length
+	4.Instructions
+		Meter meter_id:将数据包交给指定的meter限制
+		Apply-Actions actions:立即执行指定动作但不清空Action Set
+		Clear-Actions:清除Action Set中所有动作
+		Write-Actions actions:向Action Set写入动作
+		Write-Metadata metadata/mask:写metadata
+		Goto-Table next-table-id:跳转到下一个流表
+
 			
